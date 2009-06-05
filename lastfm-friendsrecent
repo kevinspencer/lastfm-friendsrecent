@@ -1,0 +1,83 @@
+#!/usr/bin/perl -w
+# Copyright 2008 Kevin Spencer <kevin@kevinspencer.org>
+#
+# Permission to use, copy, modify, distribute, and sell this software and its
+# documentation for any purpose is hereby granted without fee, provided that
+# the above copyright notice appear in all copies and that both the
+# copyright notice and this permission notice appear in supporting
+# documentation.  No representations are made about the suitability of this
+# software for any purpose.  It is provided "as is" without express or 
+# implied warranty.
+#
+################################################################################
+#
+# Uses the last.fm API (http://www.last.fm/api/intro) to find my friends'
+# recently listened to tracks.  Requires a last.fm API key.
+#
+################################################################################
+
+use JSON::XS;
+use LWP::UserAgent;
+use URI;
+use strict;
+our $VERSION = '0.1';
+our $ERROR;
+
+my $user    = '';
+my $api_key = '';
+
+# no user serviceable params below this point
+
+my $api_url = 'http://ws.audioscrobbler.com/2.0/';
+my %params = (
+    api_key => $api_key,
+    method  => 'user.GetFriends',
+    user    => $user,
+    format  => 'json'
+);
+
+my $response = getLastFMData(\%params);
+if (! $response) {
+    die $ERROR, "\n";
+}
+for my $friend_info (@{$response->{friends}{user}}) {
+    %params = (
+        api_key => $api_key,
+        method  => 'user.GetRecentTracks',
+        user    => $friend_info->{name},
+        limit   => 1,
+        format  => 'json'
+    );
+    my $track_info = getLastFMData(\%params);
+    if (! $track_info) {
+        die $ERROR;
+    }
+    print "($friend_info->{name}): " .
+        "$track_info->{recenttracks}{track}{artist}{'#text'} - " .
+        "$track_info->{recenttracks}{track}{name}\n";
+}
+
+
+sub getLastFMData {
+    my $params = shift;
+
+    my $uri = URI->new($api_url);
+    $uri->query_form(%params);
+
+    my $ua = LWP::UserAgent->new();
+    $ua->agent('getfriendrecent/' . $VERSION);
+    my $response = $ua->get($uri);
+    if (! $response->is_success()) {
+        $ERROR = "Error when communicating with $api_url: " . 
+            $response->status_line();
+        return;
+    }
+
+    my $data = decode_json($response->content());
+    if ($data->{error}) {
+        # we received an error from last.fm...
+        $ERROR = "ERROR $data->{error}: $data->{message}";
+        return;
+    }
+    return $data;
+}

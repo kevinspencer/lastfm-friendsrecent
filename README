@@ -1,0 +1,12 @@
+lastfm-friendsrecent
+
+Communicates with last.fm to find your friends most recently listened to tracks.
+
+USAGE
+
+    lastfm-friendsrecent
+
+CONFIGURATION
+
+    Uses the last.fm API (http://www.last.fm/api/intro) and thus requires
+    a last.fm API key.  Edit the $user and $api_key variables accordingly.
